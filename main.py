@@ -2,33 +2,54 @@ import pygame
 import random
 from string import ascii_uppercase, ascii_lowercase
 import sys
+import linecache
 
 # Initialize Pygame
 pygame.init()
 
 # Set up the screen dimensions
 screen_width = 601
-screen_height = 601
+screen_height = 650
 screen = pygame.display.set_mode((screen_width, screen_height))
-pygame.display.set_caption("Grid Example")
+pygame.display.set_caption("Word Search")
 
-font = pygame.font.Font(r'E:\projects\games\wordSearch\font\comic\COMICSANS.ttf', 36)  # None uses the default system font, 36 is the font size
-
+font = pygame.font.Font(r'E:\projects\games\wordSearch\font\comic\COMICSANS.ttf', 22) 
+win_font = pygame.font.Font(r'E:\projects\games\wordSearch\font\comic\COMICSANS.ttf', 50)  
+word_font = pygame.font.Font(r'E:\projects\games\wordSearch\font\comic\COMICSANS.ttf', 30)  
 
 # Set up grid parameters
-grid_size = 50  # Adjust the size of each grid square
-num_rows = screen_height // grid_size
-num_cols = screen_width // grid_size
+grid_size = 40  # Adjust the size of each grid square
+num_rows = 12
+num_cols = 12
 
 WHITE = (255, 255, 255)  # Color of the grid lines
 BLACK = (0, 0, 0)
 RED = (255, 0, 0)
 GREEN = (0, 255, 0)
-bg_color = (232, 153, 153)
-text_matrix = [[' ' for _ in range(screen_width // grid_size)] for _ in range(screen_height // grid_size)]
-matrix = [[(x+10, y+3) for y in range(0, screen_width, grid_size)] for x in range(0, screen_height, grid_size)]
+YELLOW = (255, 255, 0)
+BG = (232, 153, 153)
+WIN_COLOR = (252, 197, 78)
+WORD_COLOR = (170, 57, 250)
+text_matrix = [[' ' for _ in range(num_cols)] for _ in range(num_rows)]
+matrix = [[(x+11, y+4) for y in range(0, screen_width, grid_size)] for x in range(0, screen_height, grid_size)]
 lines = []
-words = ["story","young","fact","month","different","lot","right","study","book","eye","job"]
+matrix_lines = []
+
+
+
+def get_random_words(filename, num_lines=10):
+    lines = []
+    total_lines = sum(1 for line in open(filename))
+    while True:
+        random_line_num = random.randint(1, total_lines)
+        random_line = linecache.getline(filename, random_line_num).strip()
+        if len(random_line) < 10:
+            lines.append(random_line)
+        if len(lines) == 10:
+            return lines
+
+
+words = get_random_words(r"E:\projects\games\wordSearch\words\words.txt")
 
 
 
@@ -82,6 +103,22 @@ def place_words_coordinates(words):
     return placed_chars
 # --------------------------------------------------------------------------------
 
+def check_win():
+    if len(matrix_lines) == 10:
+        running = True
+        while running:
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    running = False
+                screen.fill(WIN_COLOR)
+                win_text = win_font.render("Victory !", True, (57, 77, 250))
+                screen.blit(win_text, ((screen_width - win_text.get_width())//2, (screen_height - win_text.get_height())//2))
+                pygame.display.flip()
+
+
+
+    return False
+
 def place_words(coordinates, words):
     for word_coordinate, word in zip(coordinates, words):
         for char_coordinate, character in zip(word_coordinate, word):
@@ -102,10 +139,10 @@ def get_words_coordinates():
 # Function to draw the grid
 def draw_grid():
 
-    for x in range(0, screen_width, grid_size):
-        pygame.draw.line(screen, WHITE, (x, 0), (x, screen_height))
-    for y in range(0, screen_height, grid_size):
-        pygame.draw.line(screen, WHITE, (0, y), (screen_width, y))
+    for x in range(0, screen_width - 120, grid_size):
+        pygame.draw.line(screen, WHITE, (x, 0), (x, screen_height - 170))
+    for y in range(0, screen_height - 150, grid_size):
+        pygame.draw.line(screen, WHITE, (0, y), (screen_width - 120, y))
 
 # Function to draw text 
 def draw_text():
@@ -116,6 +153,8 @@ def draw_text():
    
 
 
+
+
 # Function to get cell indices based on mouse position
 def get_cell_indices(mouse_pos):
     col = mouse_pos[0] // grid_size
@@ -124,15 +163,18 @@ def get_cell_indices(mouse_pos):
 
 def draw_line():
     # Draw each line stored in the lines list
-    print(lines)
-
-    for line_start, line_end in lines:
-        pygame.draw.line(screen, GREEN, line_start, line_end, 5)
+    
+    for line_start, line_end in matrix_lines:
+        pygame.draw.line(screen, GREEN, (line_start[1] * grid_size+20, line_start[0] * grid_size+20), (line_end[1] * grid_size+20, line_end[0] * grid_size+20), 5)
 
 def press_line(start_pos, end_pos):
     if check_word(start_pos, end_pos):
-        if [start_pos, end_pos] not in lines and [end_pos, start_pos] not in lines:
-            lines.append([start_pos, end_pos])
+        start_cell = get_cell_indices(start_pos)
+        end_cell = get_cell_indices(end_pos)
+        if [start_cell, end_cell] not in matrix_lines:
+            matrix_lines.append([start_cell, end_cell])
+            check_win()
+        
         pygame.draw.line(screen, GREEN, start_pos, end_pos, 5)
     else:
         pygame.draw.line(screen, RED, start_pos, end_pos, 5)
@@ -150,7 +192,31 @@ def check_word(start_pos, end_pos):
     return False
 
 
+def display_words():
+    row = 510
+    words_per_row = min(len(words), (screen_width - 100) // 150)  # Calculate words per row dynamically
+    word_spacing = (screen_width - 100) // words_per_row
+    
+    pygame.draw.line(screen, YELLOW, (50, 490), (550, 490), 3)
+    completed_words = word_font.render(str(len(matrix_lines)), True, WORD_COLOR)
+    divide = word_font.render("__", True, WORD_COLOR)
+    total_words = word_font.render(str(10), True, WORD_COLOR)
 
+    screen.blit(completed_words, (510, 110))
+    screen.blit(divide, (500, 120))
+    screen.blit(total_words, (500, 160))
+
+    for i, word in enumerate(words):
+        column = 50 + (i % words_per_row) * word_spacing
+        blit_word = word_font.render(word, True, WORD_COLOR)
+        
+        # Center-align the word within the grid cell
+        text_rect = blit_word.get_rect(center=(column + word_spacing // 2, row))
+        
+        screen.blit(blit_word, text_rect)
+        
+        if (i + 1) % words_per_row == 0:  # Move to the next row
+            row += 40  # Adjust the vertical spacing between rows
 
 # Main loop
 placed_chars = place_words_coordinates(words)
@@ -158,10 +224,9 @@ place_words(placed_chars, words)
 word_start_end = get_words_coordinates()
 
 
+
 def main():
     running = True
-
-
     while running:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -173,11 +238,11 @@ def main():
         mouse_buttons = pygame.mouse.get_pressed()
 
         # Fill the screen with black
-        screen.fill(bg_color)
+        screen.fill(BG)
         draw_grid()
         draw_text()
         draw_line()
-
+        display_words()
         # THIS is for continous line while mouse get pressed
         if mouse_buttons[0]:  # 0 represents the left mouse button
             line_end = pygame.mouse.get_pos()
